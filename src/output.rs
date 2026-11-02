@@ -22,6 +22,9 @@ use core::fmt;
 ///
 /// impl Output for Uart {}
 /// ```
+///
+/// If your sink implements [`embedded_io::Write`](https://docs.rs/embedded-io) instead,
+/// wrap it in `EmbeddedIo` (requires the `embedded-io` feature).
 pub trait Output: fmt::Write {
     /// Flushes buffered output, called after each full redraw of the bar.
     fn flush(&mut self) {}
@@ -56,5 +59,56 @@ impl Output for Stdout {
     fn flush(&mut self) {
         use std::io::Write;
         let _ = std::io::stdout().flush();
+    }
+}
+
+/// Adapter rendering to any [`embedded_io::Write`] implementor (UARTs from most embedded HALs).
+///
+/// ```
+/// use progress_bar::{pb::ProgressBar, EmbeddedIo, NoClock};
+///
+/// let mut buf = [0u8; 256];
+/// let mut progress_bar = ProgressBar::<_, _, &str>::with_output(10, EmbeddedIo(&mut buf[..]), NoClock);
+/// progress_bar.inc();
+/// ```
+#[cfg(feature = "embedded-io")]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct EmbeddedIo<T>(pub T);
+
+#[cfg(feature = "embedded-io")]
+impl<T> EmbeddedIo<T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+#[cfg(feature = "embedded-io")]
+impl<T: embedded_io::Write> fmt::Write for EmbeddedIo<T> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.0.write_all(s.as_bytes()).map_err(|_| fmt::Error)
+    }
+}
+
+#[cfg(feature = "embedded-io")]
+impl<T: embedded_io::Write> Output for EmbeddedIo<T> {
+    fn flush(&mut self) {
+        let _ = self.0.flush();
+    }
+}
+
+#[cfg(all(test, feature = "embedded-io"))]
+mod tests {
+    use super::*;
+    use crate::{pb::ProgressBar, NoClock};
+
+    #[test]
+    fn embedded_io_output() {
+        let mut buf = [0u8; 256];
+        let mut progress_bar = ProgressBar::<_, _, &str>::with_output(4, EmbeddedIo(&mut buf[..]), NoClock);
+        progress_bar.set_width(4);
+        progress_bar.inc();
+        let remaining = progress_bar.into_output().into_inner().len();
+        let written = core::str::from_utf8(&buf[..256 - remaining]).unwrap();
+        assert!(written.ends_with(" [>   ] 1/4\n\x1B[1A"));
     }
 }

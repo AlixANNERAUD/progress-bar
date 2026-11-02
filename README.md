@@ -120,6 +120,9 @@ Any `Fn() -> Duration` is a clock, so you can plug your hardware timer in. Use `
 The bar keeps the action text as given to `set_action`, in a type you choose: `&'static str` for literals,
 a `heapless::String`, or `alloc::string::String` if you have an allocator.
 
+If your HAL's UART implements [`embedded_io::Write`](https://docs.rs/embedded-io) rather than `core::fmt::Write`,
+enable the `embedded-io` feature and wrap it: `ProgressBar::<_, _, &str>::with_output(64, EmbeddedIo(uart), NoClock)`.
+
 ```rust
 use core::{fmt, time::Duration};
 use progress_bar::{pb::ProgressBar, Color, Output, Style};

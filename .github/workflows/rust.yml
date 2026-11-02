@@ -19,7 +19,7 @@ jobs:
     - name: Build
       run: cargo build --verbose --features logger
     - name: Run tests
-      run: cargo test --verbose --features logger
+      run: cargo test --verbose --all-features
 
   no_std:
 
@@ -31,3 +31,5 @@ jobs:
       run: rustup target add thumbv7em-none-eabihf
     - name: Build without std
       run: cargo build --verbose --no-default-features --target thumbv7em-none-eabihf
+    - name: Build without std, with embedded-io
+      run: cargo build --verbose --no-default-features --features embedded-io --target thumbv7em-none-eabihf
